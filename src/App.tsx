@@ -169,16 +169,16 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
+      const data = await res.json();
       if (res.ok) {
         setIsAdding(false);
         setFormData({ id: '', name: '', position: '', barcode_id: '' });
         fetchEmployees();
       } else {
-        const data = await res.json();
         alert(data.error || "Gagal menambah pegawai");
       }
-    } catch (err) {
-      alert("Kesalahan koneksi");
+    } catch (err: any) {
+      alert("Terjadi kesalahan koneksi: " + (err.message || "Server tidak merespon"));
     }
   };
 
@@ -200,13 +200,16 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
+      const data = await res.json();
       if (res.ok) {
         setEditingId(null);
         setFormData({ id: '', name: '', position: '', barcode_id: '' });
         fetchEmployees();
+      } else {
+        alert(data.error || "Gagal memperbarui data");
       }
-    } catch (err) {
-      alert("Gagal update");
+    } catch (err: any) {
+      alert("Terjadi kesalahan koneksi: " + (err.message || "Server tidak merespon"));
     }
   };
 
