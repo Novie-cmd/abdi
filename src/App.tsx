@@ -169,13 +169,21 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      const data = await res.json();
-      if (res.ok) {
-        setIsAdding(false);
-        setFormData({ id: '', name: '', position: '', barcode_id: '' });
-        fetchEmployees();
+      
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await res.json();
+        if (res.ok) {
+          setIsAdding(false);
+          setFormData({ id: '', name: '', position: '', barcode_id: '' });
+          fetchEmployees();
+        } else {
+          alert(data.error || "Gagal menambah pegawai");
+        }
       } else {
-        alert(data.error || "Gagal menambah pegawai");
+        const text = await res.text();
+        console.error("Server returned non-JSON response:", text);
+        alert("Server tidak merespon dengan benar (Bukan JSON). Pastikan backend server sedang berjalan.");
       }
     } catch (err: any) {
       alert("Terjadi kesalahan koneksi: " + (err.message || "Server tidak merespon"));
@@ -200,13 +208,19 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      const data = await res.json();
-      if (res.ok) {
-        setEditingId(null);
-        setFormData({ id: '', name: '', position: '', barcode_id: '' });
-        fetchEmployees();
+      
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await res.json();
+        if (res.ok) {
+          setEditingId(null);
+          setFormData({ id: '', name: '', position: '', barcode_id: '' });
+          fetchEmployees();
+        } else {
+          alert(data.error || "Gagal memperbarui data");
+        }
       } else {
-        alert(data.error || "Gagal memperbarui data");
+        alert("Server tidak merespon dengan benar (Bukan JSON).");
       }
     } catch (err: any) {
       alert("Terjadi kesalahan koneksi: " + (err.message || "Server tidak merespon"));
