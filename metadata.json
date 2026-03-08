@@ -1,0 +1,7 @@
+{
+  "name": "Absensi BAKESBANGPOLDAGRI NTB",
+  "description": "Aplikasi kehadiran pegawai BAKESBANGPOLDAGRI NTB dengan fitur scan barcode.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
