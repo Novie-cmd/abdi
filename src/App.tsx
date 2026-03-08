@@ -11,7 +11,13 @@ import {
   UserCheck,
   LogOut,
   LogIn,
-  AlertCircle
+  AlertCircle,
+  Users,
+  UserPlus,
+  Trash2,
+  Edit,
+  Plus,
+  Save
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -68,13 +74,20 @@ const Button = ({
 // --- Main App ---
 
 export default function App() {
-  const [view, setView] = useState<'dashboard' | 'scanner' | 'history'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'scanner' | 'history' | 'admin'>('dashboard');
   const [attendance, setAttendance] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string; data?: any } | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  
+  // Admin states
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ id: '', name: '', position: '', barcode_id: '' });
 
   useEffect(() => {
     fetchAttendance();
+    fetchEmployees();
   }, []);
 
   const fetchAttendance = async () => {
@@ -84,6 +97,65 @@ export default function App() {
       setAttendance(data);
     } catch (err) {
       console.error("Failed to fetch attendance", err);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch('/api/employees');
+      const data = await res.json();
+      setEmployees(data);
+    } catch (err) {
+      console.error("Failed to fetch employees", err);
+    }
+  };
+
+  const handleAddEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      if (res.ok) {
+        setIsAdding(false);
+        setFormData({ id: '', name: '', position: '', barcode_id: '' });
+        fetchEmployees();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Gagal menambah pegawai");
+      }
+    } catch (err) {
+      alert("Kesalahan koneksi");
+    }
+  };
+
+  const handleDeleteEmployee = async (id: string) => {
+    if (!confirm("Hapus pegawai ini? Semua riwayat kehadiran juga akan dihapus.")) return;
+    try {
+      const res = await fetch(`/api/employees/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchEmployees();
+    } catch (err) {
+      alert("Gagal menghapus");
+    }
+  };
+
+  const handleUpdateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`/api/employees/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      if (res.ok) {
+        setEditingId(null);
+        setFormData({ id: '', name: '', position: '', barcode_id: '' });
+        fetchEmployees();
+      }
+    } catch (err) {
+      alert("Gagal update");
     }
   };
 
@@ -322,6 +394,119 @@ export default function App() {
               </div>
             </motion.div>
           )}
+
+          {view === 'admin' && (
+            <motion.div 
+              key="admin"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                    <XCircle className="text-slate-400" />
+                  </button>
+                  <h2 className="text-xl font-bold">Data Pegawai</h2>
+                </div>
+                <Button 
+                  onClick={() => {
+                    setIsAdding(!isAdding);
+                    setEditingId(null);
+                    setFormData({ id: '', name: '', position: '', barcode_id: '' });
+                  }}
+                  variant={isAdding ? 'secondary' : 'primary'}
+                  className="px-3 py-1.5 text-xs"
+                >
+                  {isAdding ? 'Batal' : <><Plus size={16} /> Tambah</>}
+                </Button>
+              </div>
+
+              {(isAdding || editingId) && (
+                <Card className="p-6 border-emerald-200 bg-emerald-50/30">
+                  <form onSubmit={editingId ? handleUpdateEmployee : handleAddEmployee} className="space-y-4">
+                    <h3 className="font-bold text-emerald-900 flex items-center gap-2">
+                      {editingId ? <Edit size={18} /> : <UserPlus size={18} />}
+                      {editingId ? 'Edit Pegawai' : 'Tambah Pegawai Baru'}
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      <input 
+                        placeholder="ID Pegawai (Contoh: EMP004)" 
+                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        value={formData.id}
+                        disabled={!!editingId}
+                        onChange={e => setFormData({...formData, id: e.target.value})}
+                        required
+                      />
+                      <input 
+                        placeholder="Nama Lengkap" 
+                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        value={formData.name}
+                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        required
+                      />
+                      <input 
+                        placeholder="Jabatan" 
+                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        value={formData.position}
+                        onChange={e => setFormData({...formData, position: e.target.value})}
+                        required
+                      />
+                      <input 
+                        placeholder="ID Barcode (Contoh: BARCODE-004)" 
+                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        value={formData.barcode_id}
+                        onChange={e => setFormData({...formData, barcode_id: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <Button className="w-full">
+                      <Save size={18} />
+                      {editingId ? 'Simpan Perubahan' : 'Simpan Pegawai'}
+                    </Button>
+                  </form>
+                </Card>
+              )}
+
+              <div className="space-y-3">
+                {employees.map((emp) => (
+                  <Card key={emp.id} className="p-4 flex items-center gap-4">
+                    <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center font-bold">
+                      {emp.name.charAt(0)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-slate-800">{emp.name}</p>
+                      <p className="text-[10px] text-slate-500 uppercase font-medium">
+                        {emp.position} • {emp.id}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-mono mt-0.5">
+                        {emp.barcode_id}
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={() => {
+                          setEditingId(emp.id);
+                          setIsAdding(false);
+                          setFormData({ id: emp.id, name: emp.name, position: emp.position, barcode_id: emp.barcode_id });
+                        }}
+                        className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteEmployee(emp.id)}
+                        className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -355,6 +540,17 @@ export default function App() {
           >
             <History size={20} />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Riwayat</span>
+          </button>
+
+          <button 
+            onClick={() => setView('admin')}
+            className={cn(
+              "flex flex-col items-center gap-1 transition-colors",
+              view === 'admin' ? "text-emerald-600" : "text-slate-400"
+            )}
+          >
+            <Users size={20} />
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Admin</span>
           </button>
         </div>
       </nav>

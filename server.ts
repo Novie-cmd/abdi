@@ -48,6 +48,41 @@ async function startServer() {
     res.json(employees);
   });
 
+  app.post("/api/employees", (req, res) => {
+    const { id, name, position, barcode_id } = req.body;
+    try {
+      const insert = db.prepare("INSERT INTO employees (id, name, position, barcode_id) VALUES (?, ?, ?, ?)");
+      insert.run(id, name, position, barcode_id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put("/api/employees/:id", (req, res) => {
+    const { id } = req.params;
+    const { name, position, barcode_id } = req.body;
+    try {
+      const update = db.prepare("UPDATE employees SET name = ?, position = ?, barcode_id = ? WHERE id = ?");
+      update.run(name, position, barcode_id, id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/employees/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+      // Also delete attendance records for this employee
+      db.prepare("DELETE FROM attendance WHERE employee_id = ?").run(id);
+      db.prepare("DELETE FROM employees WHERE id = ?").run(id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
   app.get("/api/attendance/today", (req, res) => {
     const attendance = db.prepare(`
       SELECT a.*, e.name 
