@@ -17,7 +17,10 @@ import {
   Trash2,
   Edit,
   Plus,
-  Save
+  Save,
+  Lock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -81,6 +84,9 @@ export default function App() {
   const [isScanning, setIsScanning] = useState(false);
   
   // Admin states
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ id: '', name: '', position: '', barcode_id: '' });
@@ -89,6 +95,51 @@ export default function App() {
     fetchAttendance();
     fetchEmployees();
   }, []);
+
+  // Scanner Lifecycle Management
+  useEffect(() => {
+    let scanner: Html5QrcodeScanner | null = null;
+    
+    if (view === 'scanner' && isScanning && !scanResult) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        try {
+          scanner = new Html5QrcodeScanner(
+            "reader",
+            { 
+              fps: 10, 
+              qrbox: { width: 250, height: 250 },
+              aspectRatio: 1.0
+            },
+            /* verbose= */ false
+          );
+          scanner.render(onScanSuccess, (err) => {
+            // Silently handle scan errors
+          });
+        } catch (err) {
+          console.error("Scanner initialization failed", err);
+        }
+      }, 300);
+
+      return () => {
+        clearTimeout(timer);
+        if (scanner) {
+          scanner.clear().catch(error => console.error("Failed to clear scanner", error));
+        }
+      };
+    }
+  }, [view, isScanning, scanResult]);
+
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Simple hardcoded password for demo purposes
+    if (adminPassword === 'admin123') {
+      setIsAdminLoggedIn(true);
+      setAdminPassword('');
+    } else {
+      alert("Password salah!");
+    }
+  };
 
   const fetchAttendance = async () => {
     try {
@@ -185,21 +236,9 @@ export default function App() {
   };
 
   const startScanner = () => {
+    setScanResult(null);
     setView('scanner');
     setIsScanning(true);
-    setTimeout(() => {
-      const scanner = new Html5QrcodeScanner(
-        "reader",
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        /* verbose= */ false
-      );
-      scanner.render(onScanSuccess, (err) => {
-        // console.warn(err);
-      });
-      
-      // Cleanup function is tricky with this lib in React, 
-      // usually we'd want to clear it when unmounting or stopping.
-    }, 100);
   };
 
   return (
@@ -403,108 +442,157 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="space-y-6"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                    <XCircle className="text-slate-400" />
-                  </button>
-                  <h2 className="text-xl font-bold">Data Pegawai</h2>
-                </div>
-                <Button 
-                  onClick={() => {
-                    setIsAdding(!isAdding);
-                    setEditingId(null);
-                    setFormData({ id: '', name: '', position: '', barcode_id: '' });
-                  }}
-                  variant={isAdding ? 'secondary' : 'primary'}
-                  className="px-3 py-1.5 text-xs"
-                >
-                  {isAdding ? 'Batal' : <><Plus size={16} /> Tambah</>}
-                </Button>
-              </div>
-
-              {(isAdding || editingId) && (
-                <Card className="p-6 border-emerald-200 bg-emerald-50/30">
-                  <form onSubmit={editingId ? handleUpdateEmployee : handleAddEmployee} className="space-y-4">
-                    <h3 className="font-bold text-emerald-900 flex items-center gap-2">
-                      {editingId ? <Edit size={18} /> : <UserPlus size={18} />}
-                      {editingId ? 'Edit Pegawai' : 'Tambah Pegawai Baru'}
-                    </h3>
-                    <div className="grid grid-cols-1 gap-4">
-                      <input 
-                        placeholder="ID Pegawai (Contoh: EMP004)" 
-                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
-                        value={formData.id}
-                        disabled={!!editingId}
-                        onChange={e => setFormData({...formData, id: e.target.value})}
-                        required
-                      />
-                      <input 
-                        placeholder="Nama Lengkap" 
-                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
-                        value={formData.name}
-                        onChange={e => setFormData({...formData, name: e.target.value})}
-                        required
-                      />
-                      <input 
-                        placeholder="Jabatan" 
-                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
-                        value={formData.position}
-                        onChange={e => setFormData({...formData, position: e.target.value})}
-                        required
-                      />
-                      <input 
-                        placeholder="ID Barcode (Contoh: BARCODE-004)" 
-                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
-                        value={formData.barcode_id}
-                        onChange={e => setFormData({...formData, barcode_id: e.target.value})}
-                        required
-                      />
-                    </div>
-                    <Button className="w-full">
-                      <Save size={18} />
-                      {editingId ? 'Simpan Perubahan' : 'Simpan Pegawai'}
-                    </Button>
-                  </form>
-                </Card>
-              )}
-
-              <div className="space-y-3">
-                {employees.map((emp) => (
-                  <Card key={emp.id} className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center font-bold">
-                      {emp.name.charAt(0)}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800">{emp.name}</p>
-                      <p className="text-[10px] text-slate-500 uppercase font-medium">
-                        {emp.position} • {emp.id}
-                      </p>
-                      <p className="text-[10px] text-emerald-600 font-mono mt-0.5">
-                        {emp.barcode_id}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button 
-                        onClick={() => {
-                          setEditingId(emp.id);
-                          setIsAdding(false);
-                          setFormData({ id: emp.id, name: emp.name, position: emp.position, barcode_id: emp.barcode_id });
-                        }}
-                        className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteEmployee(emp.id)}
-                        className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
+              {!isAdminLoggedIn ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6">
+                    <Lock size={40} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Login Admin</h2>
+                  <p className="text-slate-500 text-center mb-8 px-6">Silakan masukkan password untuk mengakses manajemen pegawai.</p>
+                  
+                  <Card className="w-full p-6">
+                    <form onSubmit={handleAdminLogin} className="space-y-4">
+                      <div className="relative">
+                        <input 
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Password Admin" 
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none pr-12"
+                          value={adminPassword}
+                          onChange={e => setAdminPassword(e.target.value)}
+                          required
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
+                      <Button className="w-full py-3">
+                        Masuk Sekarang
+                      </Button>
+                    </form>
+                    <p className="text-[10px] text-center text-slate-400 mt-4">
+                      Petunjuk: Password default adalah <span className="font-bold">admin123</span>
+                    </p>
                   </Card>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                        <XCircle className="text-slate-400" />
+                      </button>
+                      <h2 className="text-xl font-bold">Data Pegawai</h2>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={() => setIsAdminLoggedIn(false)}
+                        variant="ghost"
+                        className="px-3 py-1.5 text-xs text-rose-600"
+                      >
+                        Logout
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          setIsAdding(!isAdding);
+                          setEditingId(null);
+                          setFormData({ id: '', name: '', position: '', barcode_id: '' });
+                        }}
+                        variant={isAdding ? 'secondary' : 'primary'}
+                        className="px-3 py-1.5 text-xs"
+                      >
+                        {isAdding ? 'Batal' : <><Plus size={16} /> Tambah</>}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {(isAdding || editingId) && (
+                    <Card className="p-6 border-emerald-200 bg-emerald-50/30">
+                      <form onSubmit={editingId ? handleUpdateEmployee : handleAddEmployee} className="space-y-4">
+                        <h3 className="font-bold text-emerald-900 flex items-center gap-2">
+                          {editingId ? <Edit size={18} /> : <UserPlus size={18} />}
+                          {editingId ? 'Edit Pegawai' : 'Tambah Pegawai Baru'}
+                        </h3>
+                        <div className="grid grid-cols-1 gap-4">
+                          <input 
+                            placeholder="ID Pegawai (Contoh: EMP004)" 
+                            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                            value={formData.id}
+                            disabled={!!editingId}
+                            onChange={e => setFormData({...formData, id: e.target.value})}
+                            required
+                          />
+                          <input 
+                            placeholder="Nama Lengkap" 
+                            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                            value={formData.name}
+                            onChange={e => setFormData({...formData, name: e.target.value})}
+                            required
+                          />
+                          <input 
+                            placeholder="Jabatan" 
+                            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                            value={formData.position}
+                            onChange={e => setFormData({...formData, position: e.target.value})}
+                            required
+                          />
+                          <input 
+                            placeholder="ID Barcode (Contoh: BARCODE-004)" 
+                            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                            value={formData.barcode_id}
+                            onChange={e => setFormData({...formData, barcode_id: e.target.value})}
+                            required
+                          />
+                        </div>
+                        <Button className="w-full">
+                          <Save size={18} />
+                          {editingId ? 'Simpan Perubahan' : 'Simpan Pegawai'}
+                        </Button>
+                      </form>
+                    </Card>
+                  )}
+
+                  <div className="space-y-3">
+                    {employees.map((emp) => (
+                      <Card key={emp.id} className="p-4 flex items-center gap-4">
+                        <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center font-bold">
+                          {emp.name.charAt(0)}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-800">{emp.name}</p>
+                          <p className="text-[10px] text-slate-500 uppercase font-medium">
+                            {emp.position} • {emp.id}
+                          </p>
+                          <p className="text-[10px] text-emerald-600 font-mono mt-0.5">
+                            {emp.barcode_id}
+                          </p>
+                        </div>
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={() => {
+                              setEditingId(emp.id);
+                              setIsAdding(false);
+                              setFormData({ id: emp.id, name: emp.name, position: emp.position, barcode_id: emp.barcode_id });
+                            }}
+                            className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteEmployee(emp.id)}
+                            className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
